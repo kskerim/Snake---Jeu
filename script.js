@@ -1,12 +1,12 @@
 // --- Paramètres du jeu ---
-const GRID_SIZE = 20; // 20x20 cases
+const GRID_SIZE = 30; // 30x30 cases
 const INIT_SNAKE = [ {x: 10, y: 10} ];
 const INIT_DIR = {x: 1, y: 0};
 const MOVE_INTERVAL = 110; // ms
-const APPLE_EFFECT_DURATION = 180; // ms
+const APPLE_EFFECT_DURATION = 260; // ms
 
 // --- Variables du jeu ---
-let snake, direction, nextDirection, apple, score, running, gameOver, appleEffect, moveTimer;
+let snake, direction, nextDirection, apple, score, running, gameOver, appleEffect, moveTimer, snakeFlash, highscore;
 let canvas, ctx, scoreEl, gameOverEl, restartBtn;
 let canvasSize, cellSize;
 
@@ -17,6 +17,11 @@ window.onload = () => {
   scoreEl = document.getElementById('score-value');
   gameOverEl = document.getElementById('game-over');
   restartBtn = document.getElementById('restart-btn');
+  // Charger le highscore depuis le localStorage (toujours une chaîne, donc parseInt)
+  let hs = localStorage.getItem('snake_highscore');
+  highscore = hs !== null && !isNaN(parseInt(hs, 10)) ? parseInt(hs, 10) : 0;
+  const highscoreEl = document.getElementById('highscore-value');
+  highscoreEl.textContent = highscore;
   adaptCanvasSize();
   window.addEventListener('resize', adaptCanvasSize);
   restartBtn.onclick = startGame;
@@ -45,9 +50,11 @@ function startGame() {
   appleEffect = 0;
   placeApple();
   scoreEl.textContent = score;
+  document.getElementById('highscore-value').textContent = highscore;
   gameOverEl.style.display = 'none';
   restartBtn.style.display = 'none';
   moveTimer = Date.now();
+  snakeFlash = 0;
   requestAnimationFrame(gameLoop);
 }
 
@@ -108,8 +115,14 @@ function moveSnake() {
   if (head.x === apple.x && head.y === apple.y) {
     score++;
     scoreEl.textContent = score;
+    if (score > highscore) {
+      highscore = score;
+      localStorage.setItem('snake_highscore', highscore);
+      document.getElementById('highscore-value').textContent = highscore;
+    }
     placeApple();
     appleEffect = APPLE_EFFECT_DURATION;
+    snakeFlash = APPLE_EFFECT_DURATION;
   } else {
     snake.pop();
   }
@@ -119,17 +132,18 @@ function moveSnake() {
 function endGame() {
   running = false;
   gameOver = true;
-  gameOverEl.innerHTML = `GAME OVER<br>Score : ${score}<br><span style='font-size:1rem'>Appuyez sur R ou cliquez pour rejouer</span>`;
+  gameOverEl.innerHTML = `GAME OVER<br>Score : ${score}<br>Meilleur : ${highscore}<br><span style='font-size:1rem'>Appuyez sur R ou cliquez pour rejouer</span>`;
   gameOverEl.style.display = 'block';
   restartBtn.style.display = 'inline-block';
+  // Removed extra closing brace
 }
 
 // --- Dessiner le jeu ---
 function draw() {
   // Effet de vibration du canvas lors de la prise de pomme
   if (appleEffect > 0) {
-    let shake = Math.random() * 4 - 2;
-    canvas.style.boxShadow = `0 4px 24px #000a, 0 0 ${8 + shake}px #ff4444`;
+    let shake = Math.random() * 10 - 5;
+    canvas.style.boxShadow = `0 4px 32px #000a, 0 0 ${18 + shake}px #ff4444`;
     appleEffect -= 16;
   } else {
     canvas.style.boxShadow = '0 4px 24px #000a';
@@ -138,17 +152,17 @@ function draw() {
   // Fond
   ctx.fillStyle = '#181818';
   ctx.fillRect(0, 0, canvasSize, canvasSize);
-  // Pomme (effet grossissement si mangée)
+  // Pomme (effet grossissement et flash si mangée)
   ctx.save();
   if (appleEffect > 0) {
-    let scale = 1 + 0.25 * (appleEffect / APPLE_EFFECT_DURATION);
+    let scale = 1 + 0.45 * (appleEffect / APPLE_EFFECT_DURATION);
     ctx.translate((apple.x + 0.5) * cellSize, (apple.y + 0.5) * cellSize);
     ctx.scale(scale, scale);
     ctx.beginPath();
-    ctx.arc(0, 0, cellSize * 0.45, 0, 2 * Math.PI);
-    ctx.fillStyle = '#ff4444';
+    ctx.arc(0, 0, cellSize * 0.48, 0, 2 * Math.PI);
+    ctx.fillStyle = `rgb(255,${80 + Math.floor(175 * (1-appleEffect/APPLE_EFFECT_DURATION))},${80 + Math.floor(175 * (1-appleEffect/APPLE_EFFECT_DURATION))})`;
     ctx.shadowColor = '#fff';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 18;
     ctx.fill();
   } else {
     ctx.beginPath();
@@ -159,16 +173,21 @@ function draw() {
     ctx.fill();
   }
   ctx.restore();
-  // Serpent
+  // Serpent (flash vert clair lors de la prise de pomme)
   for (let i = 0; i < snake.length; i++) {
     ctx.save();
     let s = snake[i];
     ctx.beginPath();
     ctx.rect(s.x * cellSize + 1, s.y * cellSize + 1, cellSize - 2, cellSize - 2);
-    ctx.fillStyle = i === 0 ? '#44ff44' : '#22bb22';
+    if (snakeFlash > 0) {
+      ctx.fillStyle = i === 0 ? '#baffb0' : '#7fff7f';
+    } else {
+      ctx.fillStyle = i === 0 ? '#44ff44' : '#22bb22';
+    }
     ctx.shadowColor = i === 0 ? '#fff' : 'transparent';
-    ctx.shadowBlur = i === 0 ? 6 : 0;
+    ctx.shadowBlur = i === 0 ? 8 : 0;
     ctx.fill();
     ctx.restore();
   }
+  if (snakeFlash > 0) snakeFlash -= 16;
 }

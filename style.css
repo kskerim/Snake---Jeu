@@ -34,8 +34,10 @@ canvas {
   border-radius: 12px;
   box-shadow: 0 4px 24px #000a;
   margin-bottom: 16px;
+  width: 600px;
+  height: 600px;
   max-width: 98vw;
-  max-height: 70vw;
+  max-height: 98vw;
   touch-action: manipulation;
   transition: box-shadow 0.1s;
 }
